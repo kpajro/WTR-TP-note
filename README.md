@@ -2,6 +2,8 @@
 
 Boutique en ligne avec suivi des commandes en temps réel.
 
+lien github : https://github.com/kpajro/WTR-TP-note
+
 ## Lancement
 
 Seul Docker est nécessaire :
