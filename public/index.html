@@ -22,5 +22,83 @@
   <h2>Commandes</h2>
   <ul id="orders"></ul>
 
+  <script>
+    const labels = { preparing: "En préparation", shipped: "Expédiée", delivered: "Livrée", cancelled: "Annulée" };
+
+    function renderProduct(product) {
+      let li = document.getElementById("product-" + product.id);
+      if (!li) {
+        li = document.createElement("li");
+        li.id = "product-" + product.id;
+        document.getElementById("products").appendChild(li);
+      }
+      li.textContent = product.name + " : " + product.stock + " en stock";
+    }
+
+    function renderOrder(order) {
+      let li = document.getElementById("order-" + order.id);
+      if (!li) {
+        li = document.createElement("li");
+        li.id = "order-" + order.id;
+        document.getElementById("orders").appendChild(li);
+      }
+      li.innerHTML = "Commande " + order.id + " : produit " + order.productId + " x" + order.quantity
+        + " - " + labels[order.status]
+        + ' <a href="/suivi.html?id=' + order.id + '">suivre</a>';
+      if (order.status === "preparing") {
+        li.innerHTML += ' <button onclick="ship(' + order.id + ')">Expédier</button>'
+          + ' <button onclick="cancelOrder(' + order.id + ')">Annuler</button>';
+      }
+    }
+
+    async function send(url, method, body) {
+      const res = await fetch(url, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const json = await res.json();
+      document.getElementById("message").textContent = res.ok ? "" : json.error;
+    }
+
+    function ship(id) {
+      send("/orders/" + id + "/status", "PATCH", { status: "shipped" });
+    }
+
+    function cancelOrder(id) {
+      send("/orders/" + id + "/cancel", "POST", {});
+    }
+
+    document.getElementById("form").addEventListener("submit", (e) => {
+      e.preventDefault();
+      send("/orders", "POST", {
+        userId: Number(document.getElementById("user").value),
+        productId: Number(document.getElementById("product").value),
+        quantity: Number(document.getElementById("quantity").value)
+      });
+    });
+
+    async function init() {
+      const users = await (await fetch("/users")).json();
+      const products = await (await fetch("/products")).json();
+      const orders = await (await fetch("/orders")).json();
+      for (const user of users) {
+        document.getElementById("user").innerHTML += '<option value="' + user.id + '">' + user.name + "</option>";
+      }
+      for (const product of products) {
+        document.getElementById("product").innerHTML += '<option value="' + product.id + '">' + product.name + "</option>";
+        renderProduct(product);
+      }
+      orders.forEach(renderOrder);
+
+      const events = new EventSource("/events");
+      events.addEventListener("stock-updated", (e) => renderProduct(JSON.parse(e.data)));
+      events.addEventListener("order-created", (e) => renderOrder(JSON.parse(e.data)));
+      events.addEventListener("order-status", (e) => renderOrder(JSON.parse(e.data)));
+      events.addEventListener("order-cancelled", (e) => renderOrder(JSON.parse(e.data)));
+    }
+
+    init();
+  </script>
 </body>
 </html>
